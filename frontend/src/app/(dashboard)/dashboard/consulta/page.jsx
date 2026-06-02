@@ -345,10 +345,17 @@ function VehicleResult({ data, placa }) {
             onClick={() => setShowFicha(!showFicha)}
             className="w-full flex items-center justify-between p-5 hover:bg-white/5 transition-colors"
           >
-            <h3 className="section-title flex items-center gap-2">
-              <Gauge className="w-4 h-4 text-brand-yellow" />
-              Ficha Técnica
-            </h3>
+            <div className="flex items-center gap-3">
+              <h3 className="section-title flex items-center gap-2">
+                <Gauge className="w-4 h-4 text-brand-yellow" />
+                Ficha Técnica
+              </h3>
+              {data.fichaTecnica.fonte && (
+                <span className="badge badge-yellow text-xs">
+                  {data.fichaTecnica.fonte}
+                </span>
+              )}
+            </div>
             {showFicha ? <ChevronUp className="w-5 h-5 text-brand-gray-400" /> : <ChevronDown className="w-5 h-5 text-brand-gray-400" />}
           </button>
 
@@ -360,28 +367,43 @@ function VehicleResult({ data, placa }) {
                 exit={{ height: 0, opacity: 0 }}
                 className="overflow-hidden"
               >
-                <div className="px-5 pb-5 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                  {[
-                    { icon: Zap, label: 'Potência', value: data.fichaTecnica.potencia },
-                    { icon: Gauge, label: 'Torque', value: data.fichaTecnica.torque },
-                    { icon: Car, label: 'Motor', value: data.fichaTecnica.motorizacao },
-                    { icon: Car, label: 'Câmbio', value: data.fichaTecnica.cambio },
-                    { icon: Weight, label: 'Peso', value: data.fichaTecnica.peso },
-                    { icon: Droplets, label: 'Tanque', value: data.fichaTecnica.capacidadeTanque },
-                    { icon: DoorOpen, label: 'Portas', value: data.fichaTecnica.numeroPortas },
-                    { icon: Fuel, label: 'Consumo Urb.', value: data.fichaTecnica.consumoUrbano },
-                    { icon: Fuel, label: 'Consumo Rod.', value: data.fichaTecnica.consumoRodoviario },
-                    { icon: Zap, label: 'Aceleração', value: data.fichaTecnica.aceleracao },
-                    { icon: Gauge, label: 'Vel. Máxima', value: data.fichaTecnica.velocidadeMaxima },
-                  ].filter(item => item.value).map(({ icon: Icon, label, value }) => (
-                    <div key={label} className="p-3 bg-brand-gray-800/50 rounded-xl">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Icon className="w-3 h-3 text-brand-yellow" />
-                        <span className="text-xs text-brand-gray-400">{label}</span>
-                      </div>
-                      <p className="font-semibold text-white text-sm">{value}</p>
-                    </div>
-                  ))}
+                <div className="px-5 pb-5 space-y-5">
+
+                  {/* Motorização */}
+                  <FichaTecnicaSection titulo="Motorização" icone={Zap} itens={[
+                    { label: 'Potência',      value: data.fichaTecnica.potencia },
+                    { label: 'Torque',        value: data.fichaTecnica.torque },
+                    { label: 'Motor',         value: data.fichaTecnica.motorizacao },
+                    { label: 'Cilindradas',   value: data.fichaTecnica.cilindradas },
+                    { label: 'Cilindros',     value: data.fichaTecnica.cilindros },
+                    { label: 'Câmbio',        value: data.fichaTecnica.cambio },
+                    { label: 'Combustível',   value: data.fichaTecnica.combustivel },
+                    { label: 'Tração',        value: data.fichaTecnica.tracao },
+                    { label: 'Carroceria',    value: data.fichaTecnica.carroceria },
+                  ]} />
+
+                  {/* Desempenho */}
+                  <FichaTecnicaSection titulo="Desempenho" icone={Gauge} itens={[
+                    { label: '0–100 km/h',     value: data.fichaTecnica.aceleracao },
+                    { label: 'Vel. Máxima',    value: data.fichaTecnica.velocidadeMaxima },
+                    { label: 'Consumo Médio',  value: data.fichaTecnica.consumoMedio },
+                    { label: 'Consumo Urb.',   value: data.fichaTecnica.consumoUrbano },
+                    { label: 'Consumo Rod.',   value: data.fichaTecnica.consumoRodoviario },
+                    { label: 'Emissão CO₂',   value: data.fichaTecnica.emissaoCO2 },
+                  ]} />
+
+                  {/* Dimensões */}
+                  <FichaTecnicaSection titulo="Dimensões e Capacidade" icone={Weight} itens={[
+                    { label: 'Peso',           value: data.fichaTecnica.peso },
+                    { label: 'Tanque',         value: data.fichaTecnica.capacidadeTanque },
+                    { label: 'Portas',         value: data.fichaTecnica.numeroPortas },
+                    { label: 'Assentos',       value: data.fichaTecnica.numeroAssentos },
+                    { label: 'Comprimento',    value: data.fichaTecnica.comprimento },
+                    { label: 'Largura',        value: data.fichaTecnica.largura },
+                    { label: 'Altura',         value: data.fichaTecnica.altura },
+                    { label: 'Entre-eixos',    value: data.fichaTecnica.entreEixos },
+                  ]} />
+
                 </div>
               </motion.div>
             )}
@@ -424,6 +446,32 @@ function InfoRow({ label, value, mono = false }) {
       <span className={`text-white text-sm font-medium ${mono ? 'font-mono' : ''}`}>
         {value || '—'}
       </span>
+    </div>
+  );
+}
+
+/**
+ * Seção da ficha técnica com título e grid de itens.
+ * Só renderiza se ao menos um item tiver valor.
+ */
+function FichaTecnicaSection({ titulo, icone: Icon, itens }) {
+  const itensFiltrados = itens.filter(item => item.value !== null && item.value !== undefined && item.value !== '');
+  if (itensFiltrados.length === 0) return null;
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-3">
+        <Icon className="w-3.5 h-3.5 text-brand-yellow" />
+        <span className="text-xs font-semibold text-brand-gray-300 uppercase tracking-wider">{titulo}</span>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+        {itensFiltrados.map(({ label, value }) => (
+          <div key={label} className="p-3 bg-brand-gray-800/50 rounded-xl">
+            <p className="text-xs text-brand-gray-400 mb-1">{label}</p>
+            <p className="font-semibold text-white text-sm leading-tight">{value}</p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

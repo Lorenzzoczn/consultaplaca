@@ -1,12 +1,15 @@
 const logger = require('../config/logger');
 
-// ─── Providers (ordem de prioridade) ─────────────────────────────────────────
+// ─── Providers de consulta por placa (ordem de prioridade) ───────────────────
 const apiPlacasProvider  = require('../providers/apiPlacasProvider');    // 1º ApiPlacas (principal)
 const placaFipeProvider  = require('../providers/placaFipeProvider');    // 2º API privada alternativa
 const customProvider     = require('../providers/customProvider');       // 3º API custom
 const fipePublicProvider = require('../providers/fipePublicProvider');   // 4º APIs públicas gratuitas
 const brasilApiProvider  = require('../providers/brasilApiProvider');    // 5º BrasilAPI fallback
 const mockProvider       = require('../providers/mockProvider');         // 6º Mock (dev/demo)
+
+// ─── Provider de enriquecimento de ficha técnica ──────────────────────────────
+const carQueryProvider   = require('../providers/carQueryProvider');     // CarQuery (specs técnicas)
 
 /**
  * VehicleService — Orquestrador central de consulta veicular.
@@ -78,29 +81,79 @@ class VehicleService {
         const duration = Date.now() - startTime;
 
         logger.info(`[VehicleService] ✓ ${provider.name} | ${data.duration}ms | total: ${duration}ms`);
-        return { success: true, data, duration };
+
+        // ─── Enriquecimento com CarQuery ──────────────────────────────────────
+        const dataEnriquecida = await this._enriquecerComCarQuery(data);
+
+        return { success: true, data: dataEnriquecida, duration };
 
       } catch (err) {
         const status = err.response?.status;
 
-        // 404 definitivo — veículo não existe, não tenta outros providers
+        // 404 definitivo — veículo não existe
         if (status === 404) {
           logger.info(`[VehicleService] 404 em ${provider.name} para ${cleanPlaca}`);
           return { success: false, notFound: true, duration: Date.now() - startTime };
         }
 
-        // Erro recuperável — tenta próximo provider
         logger.warn(`[VehicleService] ✗ ${provider.name}: ${err.message} (${status || 'sem status'})`);
         errors.push({ provider: provider.name, error: err.message, status });
       }
     }
 
-    // Todos falharam com erros não-404
     logger.error(`[VehicleService] Todos os providers falharam para ${cleanPlaca}`, { errors });
     const err = new Error('Serviço temporariamente indisponível. Tente novamente em instantes.');
     err.statusCode = 503;
     err.providerErrors = errors;
     throw err;
+  }
+
+  /**
+   * Enriquece os dados do veículo com ficha técnica da CarQuery.
+   * Só busca se a ficha técnica ainda não estiver preenchida.
+   * Falha silenciosa — nunca bloqueia o resultado principal.
+   *
+   * @param {VehicleResponseDTO} data
+   * @returns {Promise<VehicleResponseDTO>}
+   */
+  async _enriquecerComCarQuery(data) {
+    // Só enriquece se tiver marca e modelo
+    if (!data.marca || !data.modelo) return data;
+
+    // Se já tem ficha técnica com dados suficientes, não busca novamente
+    const fichaTecnicaExistente = data.fichaTecnica;
+    const temFichaSuficiente = fichaTecnicaExistente &&
+      (fichaTecnicaExistente.potencia || fichaTecnicaExistente.motorizacao);
+
+    if (temFichaSuficiente) {
+      logger.debug(`[VehicleService] Ficha técnica já disponível, pulando CarQuery`);
+      return data;
+    }
+
+    try {
+      logger.debug(`[VehicleService] Enriquecendo com CarQuery: ${data.marca}/${data.modelo}/${data.anoModelo}`);
+
+      const fichaTecnicaCarQuery = await carQueryProvider.fetchSpecs(
+        data.marca,
+        data.modelo,
+        data.anoModelo || data.anoFabricacao
+      );
+
+      if (fichaTecnicaCarQuery) {
+        // Mescla: dados existentes têm prioridade, CarQuery preenche o que falta
+        const fichaFinal = {
+          ...fichaTecnicaCarQuery,
+          ...(fichaTecnicaExistente || {}),
+        };
+
+        logger.info(`[VehicleService] ✓ CarQuery enriqueceu ficha técnica de ${data.marca} ${data.modelo}`);
+        return { ...data, fichaTecnica: fichaFinal };
+      }
+    } catch (err) {
+      logger.warn(`[VehicleService] CarQuery falhou para ${data.marca}/${data.modelo}: ${err.message}`);
+    }
+
+    return data;
   }
 
   // ─── Status ───────────────────────────────────────────────────────────────

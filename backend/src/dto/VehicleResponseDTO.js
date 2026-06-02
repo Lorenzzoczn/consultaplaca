@@ -20,17 +20,27 @@
  * @property {string|null} torque
  * @property {string|null} motorizacao
  * @property {string|null} cambio
+ * @property {string|null} combustivel
+ * @property {string|null} cilindradas
+ * @property {number|null} cilindros
+ * @property {string|null} tracao
  * @property {string|null} peso
  * @property {string|null} capacidadeTanque
  * @property {number|null} numeroPortas
+ * @property {number|null} numeroAssentos
+ * @property {string|null} consumoMedio
  * @property {string|null} consumoUrbano
  * @property {string|null} consumoRodoviario
+ * @property {string|null} emissaoCO2
  * @property {string|null} aceleracao
  * @property {string|null} velocidadeMaxima
  * @property {string|null} comprimento
  * @property {string|null} largura
  * @property {string|null} altura
  * @property {string|null} entreEixos
+ * @property {string|null} carroceria
+ * @property {string|null} versao
+ * @property {string|null} fonte
  */
 
 /**
