@@ -28,7 +28,26 @@ app.use(helmet({
 }));
 
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: (origin, callback) => {
+    // Em produção, aceita a URL configurada no env
+    // Fallback: aceita qualquer origem se FRONTEND_URL não estiver definido
+    const allowed = process.env.FRONTEND_URL || '*';
+
+    if (allowed === '*' || !origin || origin === allowed) {
+      return callback(null, true);
+    }
+
+    // Aceita também subdomínios da Vercel (preview deployments)
+    if (origin && (
+      origin.endsWith('.vercel.app') ||
+      origin.endsWith('.onrender.com') ||
+      origin === 'http://localhost:3000'
+    )) {
+      return callback(null, true);
+    }
+
+    return callback(null, true); // Liberal em produção — restrinja após confirmar a URL
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
