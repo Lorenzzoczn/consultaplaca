@@ -78,10 +78,49 @@ app.use(notFound);
 app.use(errorHandler);
 
 // ─── Start Server ─────────────────────────────────────────────────────────────
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   logger.info(`🚀 ConsultaPlaca API running on port ${PORT}`);
   logger.info(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
   logger.info(`🔗 Health check: http://localhost:${PORT}/health`);
+
+  // Auto-seed: cria usuários padrão se o banco estiver vazio
+  try {
+    const prisma = require('./config/database');
+    const count = await prisma.user.count();
+    if (count === 0) {
+      logger.info('Banco vazio detectado — executando seed inicial...');
+      const bcrypt = require('bcryptjs');
+      const adminPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD || 'Admin@123456', 12);
+      const demoPassword  = await bcrypt.hash('Demo@123456', 12);
+
+      await prisma.user.createMany({
+        data: [
+          {
+            name:           'Administrador',
+            email:          process.env.ADMIN_EMAIL || 'admin@consultaplaca.com',
+            password:       adminPassword,
+            role:           'ADMIN',
+            consultasLimit: 99999,
+          },
+          {
+            name:           'Usuário Demo',
+            email:          'demo@consultaplaca.com',
+            password:       demoPassword,
+            role:           'USER',
+            consultasLimit: 50,
+          },
+        ],
+      });
+
+      logger.info('✅ Seed automático concluído:');
+      logger.info(`   Admin: ${process.env.ADMIN_EMAIL || 'admin@consultaplaca.com'}`);
+      logger.info('   Demo:  demo@consultaplaca.com');
+    } else {
+      logger.info(`✅ Banco inicializado (${count} usuário(s) existente(s))`);
+    }
+  } catch (seedErr) {
+    logger.error('Falha no seed automático:', seedErr.message);
+  }
 });
 
 module.exports = app;
