@@ -1,0 +1,89 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  USER
+  VIEWER
+}
+
+enum ConsultaStatus {
+  SUCCESS
+  NOT_FOUND
+  ERROR
+  RATE_LIMITED
+}
+
+model User {
+  id              String    @id @default(cuid())
+  name            String
+  email           String    @unique
+  password        String
+  role            Role      @default(USER)
+  isActive        Boolean   @default(true)
+  consultasLimit  Int       @default(100)
+  consultasUsed   Int       @default(0)
+  resetToken      String?
+  resetTokenExp   DateTime?
+  lastLogin       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  consultas       Consulta[]
+  sessions        Session[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model Consulta {
+  id          String         @id @default(cuid())
+  userId      String
+  placa       String
+  status      ConsultaStatus @default(SUCCESS)
+  resultado   Json?
+  ipAddress   String?
+  userAgent   String?
+  duration    Int?           // milliseconds
+  createdAt   DateTime       @default(now())
+
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([placa])
+  @@index([createdAt])
+  @@map("consultas")
+}
+
+model ApiLog {
+  id          String   @id @default(cuid())
+  endpoint    String
+  method      String
+  statusCode  Int
+  duration    Int
+  ipAddress   String?
+  userId      String?
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@map("api_logs")
+}
